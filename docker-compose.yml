@@ -1,0 +1,20 @@
+version: '3'
+services:
+  postgrest-drs:
+    build: .
+    image: maayanlab/postgrest-drs
+    ports:
+      - 8080:80
+    environment:
+      - PGRST_DB_URI=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/${POSTGRES_DB}
+      - PGRST_DB_SCHEMA=api
+      - PGRST_DB_ANON_ROLE=anon
+  postgres:
+    image: postgres
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres:/var/lib/postgresql/data
+volumes:
+  postgres:
