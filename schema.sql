@@ -100,6 +100,7 @@ create table data.drs_object_access (
   type varchar not null,
   access_id varchar not null,
   access_url varchar not null,
+  region varchar,
   headers json,
   primary key (id, access_id),
   foreign key (id) references data.drs_object (id) on delete cascade
@@ -122,13 +123,14 @@ select
         when a.headers is null then a.access_url
         else null
       end,
+      a.region,
       a.type
-    ) as api.drs_access_method)), '{}'::api.drs_access_method[])
+    ) as types.drs_access_method)), '{}'::types.drs_access_method[])
     from data.drs_object_access a
     where o.id = a.id
   ) as access_methods,
   (
-    select coalesce(array_agg(cast((c.type, c.checksum) as api.drs_checksum)), '{}'::api.drs_checksum[])
+    select coalesce(array_agg(cast((c.type, c.checksum) as types.drs_checksum)), '{}'::types.drs_checksum[])
     from data.drs_object_checksum c
     where o.id = c.id
   ) as checksums,
