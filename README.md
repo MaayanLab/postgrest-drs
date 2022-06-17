@@ -37,12 +37,14 @@ Assuming you want to expose, for example, an S3 bucket, you can quickly generate
 
 ```python
 import os
+import sys
 import csv
 import s3fs
 import pathlib
 import psycopg2
 import contextlib
 import tempfile
+import collections
 
 @contextlib.contextmanager
 def with_many(**contexts):
@@ -63,20 +65,25 @@ def with_many(**contexts):
 bucket = 'your-bucket'
 fs = s3fs.S3FileSystem(anon=True)
 files = [f for f in fs.ls(bucket, detail=True) if f['type'] == 'file']
+exclude = [
+    k
+    for k, v in collections.Counter(file['ETag'] for file in files.values() if 'ETag' in file).items()
+    if v > 1
+]
 
 # connect to database
 conn = psycopg2.connect(os.environ.get('DB_URL', 'user=postgres host=localhost port=5432'))
 cur = conn.cursor()
 
 # database import schema
-tables = OrderedDict([
-  ('drs_object', ('id', 'created_time', 'size')),
-  ('drs_object_checksums': ('id', 'type', 'checksum')),
-  ('drs_object_access': ('id', 'type', 'access_id', 'access_url')),
+tables = collections.OrderedDict([
+  ('data.drs_object', ('id', 'name', 'created_time', 'size')),
+  ('data.drs_object_checksum', ('id', 'type', 'checksum')),
+  ('data.drs_object_access', ('id', 'type', 'access_id', 'access_url')),
 ])
 # prepare temporary directory for work
 with tempfile.TemporaryDirectory() as tmp:
-  tmp = Path(tmp)
+  tmp = pathlib.Path(tmp)
   # prepare file for each table
   with with_many(**{
     tbl: (tmp/(tbl+'.tsv')).open('w')
@@ -87,29 +94,33 @@ with tempfile.TemporaryDirectory() as tmp:
       tbl: csv.DictWriter(table_fps[tbl], cols, delimiter='\t')
       for tbl, cols in tables.items()
     }
+    for writer in table_writers.values():
+      writer.writeheader()
     # walk through files and write entries
     for r in files:
+      if 'ETag' not in r or r['ETag'] in exclude: continue
       id = r['ETag'].strip('"')
-      table_writers['drs_object'].writerow({
+      table_writers['data.drs_object'].writerow({
         'id': id,
+        'name': pathlib.PurePosixPath(r['name']).stem,
         'created_time': r['LastModified'].isoformat(),
         'size': r['size'],
       })
-      table_writers['drs_object_checksums'].writerow({
-        'id': id, 'type': 'etag', 'checksum': r['ETag'].strip('"')
+      table_writers['data.drs_object_checksum'].writerow({
+        'id': id, 'type': 'md5', 'checksum': r['ETag'].strip('"')
       })
-      table_writers['drs_object_access'].writerow({
-        'id': id, 'access_id': 'http', 'type': 'http',
+      table_writers['data.drs_object_access'].writerow({
+        'id': id, 'access_id': 'https', 'type': 'https',
         'access_url': f"https://{bucket}.s3.amazonaws.com/{r['name'][len(bucket)+1:]}"
       })
-      table_writers['drs_object_access_methods'].writerow({
+      table_writers['data.drs_object_access'].writerow({
         'id': id, 'access_id': 's3', 'type': 's3',
         'access_url': f"s3://{r['name']}",
       })
   # load table files into database
   for table, cols in tables.items():
     with (tmp/(table+'.tsv')).open('r') as fr:
-      cur.copy_from(fr, table, columns=cols, sep='\t')
+      cur.copy_expert(f"COPY {table} ({', '.join(cols)}) from STDIN WITH HEADER DELIMITER '\t' CSV", fr)
   conn.commit()
 
 ```
