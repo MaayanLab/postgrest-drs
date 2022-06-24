@@ -102,7 +102,7 @@ with tempfile.TemporaryDirectory() as tmp:
       id = r['ETag'].strip('"')
       table_writers['data.drs_object'].writerow({
         'id': id,
-        'name': pathlib.PurePosixPath(r['name']).stem,
+        'name': pathlib.PurePosixPath(r['name']).name,
         'created_time': r['LastModified'].isoformat(),
         'size': r['size'],
       })
