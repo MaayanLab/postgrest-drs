@@ -79,7 +79,7 @@ create type types.drs_object as (
 
 -- data model
 create or replace function data.drs_service_origin() returns varchar as $$
-  select 'drs.maayanlab.cloud';
+  select 'drs.lincs-dcic.org';
 $$ language sql immutable;
 
 create table data.drs_object (
@@ -130,7 +130,7 @@ select
     where o.id = a.id
   ) as access_methods,
   (
-    select coalesce(array_agg(cast((c.type, c.checksum) as types.drs_checksum)), '{}'::types.drs_checksum[])
+    select coalesce(array_agg(cast((c.checksum, c.type) as types.drs_checksum)), '{}'::types.drs_checksum[])
     from data.drs_object_checksum c
     where o.id = c.id
   ) as checksums,
@@ -153,10 +153,10 @@ from
 -- /service-info
 create or replace function api.drs_service_info() returns types.service as $$
 select
-  'cloud.maayanlab.drs' as "id",
+  'org.lincs-dcic.drs' as "id",
   'LINCS DRS' as "name",
   cast((
-    'cloud.maayanlab',
+    'org.lincs-dcic',
     'drs',
     '1.0.0'
   ) as types.service_type) as "type",
