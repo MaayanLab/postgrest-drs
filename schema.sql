@@ -37,16 +37,17 @@ create type types.drs_access_method_type as enum (
   'file'
 );
 
-create type types.drs_access_method as (
-  access_id varchar,
-  access_url varchar,
-  region varchar,
-  type types.drs_access_method_type
-);
 
 create type types.drs_access_url as (
   url varchar,
   headers json
+);
+
+create type types.drs_access_method as (
+  access_id varchar,
+  access_url types.drs_access_url,
+  region varchar,
+  type types.drs_access_method_type
 );
 
 create type types.drs_checksum_type as enum (
@@ -119,10 +120,10 @@ select
   (
     select coalesce(array_agg(cast((
       a.access_id,
-      case
-        when a.headers is null then a.access_url
-        else null
-      end,
+      cast((
+        a.access_url,
+        a.headers
+      ) as types.drs_access_url),
       a.region,
       a.type
     ) as types.drs_access_method)), '{}'::types.drs_access_method[])
