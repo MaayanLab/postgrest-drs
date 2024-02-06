@@ -2,7 +2,7 @@ version: '3'
 services:
   postgrest-drs:
     build: .
-    image: maayanlab/postgrest-drs:0.0.1
+    image: maayanlab/postgrest-drs:0.1.0
     ports:
       - 8080:80
     environment:
