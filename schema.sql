@@ -142,7 +142,7 @@ select
   o.mime_type,
   o.name,
   ('drs://' || data.drs_service_origin() || '/' || o.id) as self_uri,
-  o.size,
+  o.size::int,
   o.updated_time,
   o.version
 from
@@ -176,6 +176,12 @@ create or replace function api.drs_object(object_id varchar) returns setof data.
   where id = drs_object.object_id;
 $$ language sql security definer;
 grant execute on function api.drs_object(varchar) to anon;
+
+-- /objects/{object_id}?expand=
+create or replace function api.drs_object(object_id varchar, "expand" varchar) returns setof data.drs_object_complete as $$
+  select api.drs_object(object_id);
+$$ language sql security definer;
+grant execute on function api.drs_object(varchar, varchar) to anon;
 
 -- /objects/{object_id}/access/{access_id}
 create or replace function api.drs_object_access(object_id varchar, access_id varchar) returns setof types.drs_access_url as $$
